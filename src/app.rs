@@ -1,4 +1,9 @@
+use egui_file::FileDialog;
 use log::error;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -9,6 +14,11 @@ pub struct WeaverApp {
 
     #[serde(skip)] // This how you opt-out of serialization of a field
     value: f32,
+
+    #[serde(skip)]
+    opened_file: Option<PathBuf>,
+    #[serde(skip)]
+    open_file_dialog: Option<FileDialog>,
 }
 
 impl Default for WeaverApp {
@@ -17,6 +27,8 @@ impl Default for WeaverApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
+            open_file_dialog: None,
+            opened_file: None,
         }
     }
 }
@@ -48,6 +60,14 @@ impl eframe::App for WeaverApp {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
+        // Render open dialog
+        if let Some(dialog) = &mut self.open_file_dialog
+            && dialog.show(ui).selected()
+            && let Some(file) = dialog.path()
+        {
+            self.opened_file = Some(file.to_path_buf());
+        }
+
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -55,9 +75,26 @@ impl eframe::App for WeaverApp {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
                     if ui.button("Open").clicked() {
-                        error!("open clicked");
                         // TODO: this doesn't show up in devtools in web build
+                        error!("open clicked");
+                        // Show only Rust source files.
+                        let filter = Box::new({
+                            let ext = Some(OsStr::new("rs"));
+                            move |path: &Path| -> bool { path.extension() == ext }
+                        });
+
+                        let mut dialog = FileDialog::open_file().show_files_filter(filter);
+                        if let Some(mut path) = self.opened_file.clone()
+                            && path.pop()
+                        {
+                            // Use the path of the previously opened file.
+                            dialog = dialog.initial_path(path);
+                        }
+
+                        dialog.open();
+                        self.open_file_dialog = Some(dialog);
                     }
+
                     // NOTE: no File->Quit on web pages!
                     #[expect(clippy::collapsible_if)]
                     if !is_web {
@@ -106,6 +143,11 @@ impl eframe::App for WeaverApp {
             ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
             if ui.button("Increment").clicked() {
                 self.value += 1.0;
+            }
+
+            if let Some(path) = &self.opened_file {
+                ui.add_space(16.0);
+                ui.label(format!("Selected path: {}", path.to_string_lossy()));
             }
 
             ui.separator();
