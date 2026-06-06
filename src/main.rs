@@ -5,6 +5,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
+
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
@@ -16,13 +17,14 @@ fn main() -> eframe::Result {
                 // NOTE: Adding an icon is optional
                 eframe::icon_data::from_png_bytes(&include_bytes!("../assets/favicon-512x512.png")[..])
                     .expect("Failed to load icon"),
-            ),
+            )
+            .with_drag_and_drop(true),
         ..Default::default()
     };
     eframe::run_native(
         &format!("Weaver v{VERSION}"),
         native_options,
-        Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc, None)))),
+        Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc)))),
     )
 }
 
@@ -47,17 +49,11 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
-        let file_input = document
-            .get_element_by_id("file_input")
-            .expect("Failed to find file_input")
-            .dyn_into::<web_sys::HtmlInputElement>()
-            .expect("file_input was not a HtmlInputElement");
-
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc, Some(file_input))))),
+                Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc)))),
             )
             .await;
 

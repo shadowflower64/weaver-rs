@@ -2,4 +2,5 @@
 
 mod app;
 mod file_dialog;
+mod futures;
 pub use app::WeaverApp;

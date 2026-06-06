@@ -1,6 +1,6 @@
-use crate::file_dialog::{CompatFileDialog, HtmlInputElement, ReadableFile};
-use log::{error, info};
-use std::io::Read;
+use crate::futures::spawn_local_block_or_not;
+use log::info;
+use std::sync::{Arc, Mutex};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -13,9 +13,7 @@ pub struct WeaverApp {
     value: f32,
 
     #[serde(skip)]
-    file_dialog: CompatFileDialog,
-    #[serde(skip)]
-    picked_file: Option<ReadableFile>,
+    picked_file: Arc<Mutex<Option<(String, Vec<u8>)>>>,
 }
 
 impl Default for WeaverApp {
@@ -24,36 +22,26 @@ impl Default for WeaverApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
-            file_dialog: CompatFileDialog::placeholder(),
-            picked_file: None,
+            picked_file: Arc::new(Mutex::new(None)),
         }
     }
 }
 
 impl WeaverApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, html_file_input: Option<HtmlInputElement>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        let file_dialog = CompatFileDialog::new(html_file_input);
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            Self {
-                file_dialog,
-                ..eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
-            }
+            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         } else {
-            Self {
-                file_dialog,
-                ..Default::default()
-            }
+            Default::default()
         }
     }
 }
-
 impl eframe::App for WeaverApp {
     /// Called by the framework to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -65,19 +53,6 @@ impl eframe::App for WeaverApp {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        // Update the dialog
-        self.file_dialog.update(ui);
-
-        // Check if the user picked a file.
-        if let Some(mut file) = self.file_dialog.take_picked() {
-            info!("file picked now");
-            let mut string = String::new();
-
-            let _ = file.read_to_string(&mut string).inspect_err(|e| error!("could not read file: {e}"));
-            info!("Loaded data: {} ({} length)", string, string.len());
-            self.picked_file = Some(file);
-        }
-
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -85,7 +60,26 @@ impl eframe::App for WeaverApp {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
                     if ui.button("Open").clicked() {
-                        self.file_dialog.pick_file();
+                        let future_result_clone = self.picked_file.clone();
+                        info!("testing1");
+                        spawn_local_block_or_not(async move {
+                            info!("testing3");
+                            if let Some(file) = rfd::AsyncFileDialog::new().pick_file().await {
+                                let filename = file.file_name();
+                                let data = file.read().await;
+
+                                info!("file picked now");
+                                let string = String::from_utf8_lossy(&data);
+                                info!("Loaded data: {} ({} length)", string, string.len());
+
+                                *future_result_clone.lock().unwrap() = Some((filename, data));
+                            } else {
+                                *future_result_clone.lock().unwrap() =
+                                    Some((String::from("no filename provided"), Vec::new()));
+                                // *future_result_clone.lock().unwrap() = None;
+                                info!("file pick cancelled");
+                            }
+                        });
                     }
 
                     // NOTE: no File->Quit on web pages!
@@ -139,10 +133,7 @@ impl eframe::App for WeaverApp {
             }
 
             ui.add_space(16.0);
-            ui.label(format!(
-                "Picked file: {:?}",
-                self.picked_file.as_ref().map(ReadableFile::name)
-            ));
+            ui.label(format!("Picked file: {:?}", self.picked_file));
 
             ui.separator();
 
