@@ -44,6 +44,8 @@ fn main() {
             .document()
             .expect("No document");
 
+        document.set_title(&format!("Weaver v{VERSION}"));
+
         let canvas = document
             .get_element_by_id("the_canvas_id")
             .expect("Failed to find the_canvas_id")

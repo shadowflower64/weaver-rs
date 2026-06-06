@@ -1,6 +1,4 @@
-use std::char;
-
-use rand::{RngExt, distr::Uniform, rng};
+use log::error;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -57,7 +55,8 @@ impl eframe::App for WeaverApp {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
                     if ui.button("Open").clicked() {
-                        println!("testing open");
+                        error!("open clicked");
+                        // TODO: this doesn't show up in devtools in web build
                     }
                     // NOTE: no File->Quit on web pages!
                     if !is_web {
@@ -69,8 +68,17 @@ impl eframe::App for WeaverApp {
                         ui.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
 
-                    let random_string = rng().sample_iter(Uniform::new_inclusive(0, 9).unwrap()).take(5).filter_map(|i| char::from_digit(i, 10)).collect::<String>();
-                    if ui.button(format!("Immediate mode - random string: {:?}", random_string)).clicked() {
+                    #[allow(unused)]
+                    let random_string = "<random not available>".to_string();
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let random_string = {
+                        use std::char;
+                        use rand::{RngExt, distr::Uniform, rng};
+                        rng().sample_iter(Uniform::new_inclusive(0, 9).unwrap()).take(5).filter_map(|i| char::from_digit(i, 10)).collect::<String>()
+                    };
+
+                    if ui.button(format!("Immediate mode - random string: {}", random_string)).clicked() {
                         ui.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
