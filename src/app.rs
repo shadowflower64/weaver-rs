@@ -1,9 +1,7 @@
-use egui_file::FileDialog;
-use log::error;
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use log::info;
+
+use crate::file_dialog::{CompatFileDialog, HtmlInputElement};
+use std::path::PathBuf;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -16,9 +14,9 @@ pub struct WeaverApp {
     value: f32,
 
     #[serde(skip)]
-    opened_file: Option<PathBuf>,
+    file_dialog: CompatFileDialog,
     #[serde(skip)]
-    open_file_dialog: Option<FileDialog>,
+    picked_file: Option<PathBuf>,
 }
 
 impl Default for WeaverApp {
@@ -27,24 +25,32 @@ impl Default for WeaverApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
-            open_file_dialog: None,
-            opened_file: None,
+            file_dialog: CompatFileDialog::placeholder(),
+            picked_file: None,
         }
     }
 }
 
 impl WeaverApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, html_file_input: Option<HtmlInputElement>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
+
+        let file_dialog = CompatFileDialog::new(html_file_input);
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+            WeaverApp {
+                file_dialog,
+                ..eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+            }
         } else {
-            Default::default()
+            WeaverApp {
+                file_dialog,
+                ..Default::default()
+            }
         }
     }
 }
@@ -60,12 +66,13 @@ impl eframe::App for WeaverApp {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        // Render open dialog
-        if let Some(dialog) = &mut self.open_file_dialog
-            && dialog.show(ui).selected()
-            && let Some(file) = dialog.path()
-        {
-            self.opened_file = Some(file.to_path_buf());
+        // Update the dialog
+        self.file_dialog.update(ui);
+
+        // Check if the user picked a file.
+        if let Some(path) = self.file_dialog.take_picked() {
+            info!("file picked now");
+            self.picked_file = Some(path.to_path_buf());
         }
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
@@ -75,24 +82,7 @@ impl eframe::App for WeaverApp {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
                     if ui.button("Open").clicked() {
-                        // TODO: this doesn't show up in devtools in web build
-                        error!("open clicked");
-                        // Show only Rust source files.
-                        let filter = Box::new({
-                            let ext = Some(OsStr::new("rs"));
-                            move |path: &Path| -> bool { path.extension() == ext }
-                        });
-
-                        let mut dialog = FileDialog::open_file().show_files_filter(filter);
-                        if let Some(mut path) = self.opened_file.clone()
-                            && path.pop()
-                        {
-                            // Use the path of the previously opened file.
-                            dialog = dialog.initial_path(path);
-                        }
-
-                        dialog.open();
-                        self.open_file_dialog = Some(dialog);
+                        self.file_dialog.pick_file();
                     }
 
                     // NOTE: no File->Quit on web pages!
@@ -145,10 +135,8 @@ impl eframe::App for WeaverApp {
                 self.value += 1.0;
             }
 
-            if let Some(path) = &self.opened_file {
-                ui.add_space(16.0);
-                ui.label(format!("Selected path: {}", path.to_string_lossy()));
-            }
+            ui.add_space(16.0);
+            ui.label(format!("Picked file: {:?}", self.picked_file));
 
             ui.separator();
 

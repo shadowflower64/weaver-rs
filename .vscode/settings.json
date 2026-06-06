@@ -1,3 +1,7 @@
 {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+    "rust-analyzer.check.targets": ["wasm32-unknown-unknown", "x86_64-pc-windows-msvc"],
+    "rust-analyzer.check.allTargets": true,
+    "rust-analyzer.cargo.allTargets": true
 }

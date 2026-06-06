@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         &format!("Weaver v{VERSION}"),
         native_options,
-        Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc, None)))),
     )
 }
 
@@ -47,11 +47,17 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
+        let file_input = document
+            .get_element_by_id("file_input")
+            .expect("Failed to find file_input")
+            .dyn_into::<web_sys::HtmlInputElement>()
+            .expect("file_input was not a HtmlInputElement");
+
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(weaver::WeaverApp::new(cc, Some(file_input))))),
             )
             .await;
 
