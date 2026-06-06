@@ -1,6 +1,6 @@
 {
-  "name": "egui Template PWA",
-  "short_name": "egui-template-pwa",
+  "name": "Weaver PWA",
+  "short_name": "weaver-pwa",
   "icons": [
     {
       "src": "./assets/favicon-192x192.png",
