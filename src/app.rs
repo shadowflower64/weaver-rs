@@ -59,6 +59,7 @@ impl eframe::App for WeaverApp {
                         // TODO: this doesn't show up in devtools in web build
                     }
                     // NOTE: no File->Quit on web pages!
+                    #[expect(clippy::collapsible_if)]
                     if !is_web {
                         if ui.button("Quit").clicked() {
                             ui.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -68,17 +69,18 @@ impl eframe::App for WeaverApp {
                         ui.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
 
+                    #[allow(clippy::allow_attributes)]
                     #[allow(unused)]
-                    let random_string = "<random not available>".to_string();
+                    let random_string = "<random not available>".to_owned();
 
                     #[cfg(not(target_arch = "wasm32"))]
                     let random_string = {
                         use std::char;
-                        use rand::{RngExt, distr::Uniform, rng};
-                        rng().sample_iter(Uniform::new_inclusive(0, 9).unwrap()).take(5).filter_map(|i| char::from_digit(i, 10)).collect::<String>()
+                        use rand::{RngExt as _, distr::Uniform, rng};
+                        rng().sample_iter(Uniform::new_inclusive(0, 9).expect("invalid range")).take(5).filter_map(|i| char::from_digit(i, 10)).collect::<String>()
                     };
 
-                    if ui.button(format!("Immediate mode - random string: {}", random_string)).clicked() {
+                    if ui.button(format!("Immediate mode - random string: {random_string}")).clicked() {
                         ui.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
