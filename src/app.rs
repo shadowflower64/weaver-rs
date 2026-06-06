@@ -1,6 +1,19 @@
 use egui_async::Bind;
 use log::info;
 
+pub fn filled_bind<T: 'static, E: 'static>(retain: bool, fill: T) -> Bind<T, E> {
+    let mut bind = Bind::new(retain);
+    bind.fill(Ok(fill));
+    bind
+}
+
+#[expect(unused)]
+pub fn filled_bind_err<T: 'static, E: 'static>(retain: bool, fill: E) -> Bind<T, E> {
+    let mut bind = Bind::new(retain);
+    bind.fill(Err(fill));
+    bind
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -24,7 +37,7 @@ impl Default for WeaverApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
-            picked_file: Bind::new(true),
+            picked_file: filled_bind(true, None),
             my_ip: Default::default(),
         }
     }
@@ -75,11 +88,11 @@ impl eframe::App for WeaverApp {
                                 info!("file picked now");
                                 let string = String::from_utf8_lossy(&data);
                                 info!("Loaded data: {} ({} length)", string, string.len());
-                                return Ok(Some((filename, data)));
+                                Ok(Some((filename, data)))
                             } else {
                                 // *future_result_clone.lock().unwrap() = None;
                                 info!("file pick cancelled");
-                                return Ok(Some((String::from("no filename provided"), Vec::new())));
+                                Ok(None)
                             }
                         });
                     }
@@ -135,7 +148,18 @@ impl eframe::App for WeaverApp {
             }
 
             ui.add_space(16.0);
-            ui.label(format!("Picked file: {:?}", self.picked_file.read()));
+
+            ui.label("Picked file: ");
+            if matches!(self.picked_file.state(), egui_async::StateWithData::Pending) {
+                ui.spinner();
+            } else if let Some(picked_file) = self.picked_file.read() {
+                ui.monospace(format!("{picked_file:?}"));
+            }
+
+            ui.add_space(16.0);
+
+            ui.label("Animated spinner:");
+            ui.spinner();
 
             if let Some(res) = self.my_ip.read_or_request(|| async {
                 // This async block runs in the background!

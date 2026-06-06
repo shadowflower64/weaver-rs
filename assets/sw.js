@@ -6,6 +6,11 @@ var filesToCache = [
   './weaver_bg.wasm',
 ];
 
+/* Remove cache when in development mode */
+if (location.hash === "#dev") {
+  caches.delete(cacheName);
+}
+
 /* Start the service worker and cache all of the app's content */
 self.addEventListener('install', function (e) {
   e.waitUntil(
