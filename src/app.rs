@@ -1,7 +1,6 @@
-use log::info;
-
-use crate::file_dialog::{CompatFileDialog, HtmlInputElement};
-use std::path::PathBuf;
+use crate::file_dialog::{CompatFileDialog, HtmlInputElement, ReadableFile};
+use log::{error, info};
+use std::io::Read;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -16,7 +15,7 @@ pub struct WeaverApp {
     #[serde(skip)]
     file_dialog: CompatFileDialog,
     #[serde(skip)]
-    picked_file: Option<PathBuf>,
+    picked_file: Option<ReadableFile>,
 }
 
 impl Default for WeaverApp {
@@ -42,12 +41,12 @@ impl WeaverApp {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            WeaverApp {
+            Self {
                 file_dialog,
                 ..eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
             }
         } else {
-            WeaverApp {
+            Self {
                 file_dialog,
                 ..Default::default()
             }
@@ -70,9 +69,13 @@ impl eframe::App for WeaverApp {
         self.file_dialog.update(ui);
 
         // Check if the user picked a file.
-        if let Some(path) = self.file_dialog.take_picked() {
+        if let Some(mut file) = self.file_dialog.take_picked() {
             info!("file picked now");
-            self.picked_file = Some(path.to_path_buf());
+            let mut string = String::new();
+
+            let _ = file.read_to_string(&mut string).inspect_err(|e| error!("could not read file: {e}"));
+            info!("Loaded data: {} ({} length)", string, string.len());
+            self.picked_file = Some(file);
         }
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
@@ -136,7 +139,10 @@ impl eframe::App for WeaverApp {
             }
 
             ui.add_space(16.0);
-            ui.label(format!("Picked file: {:?}", self.picked_file));
+            ui.label(format!(
+                "Picked file: {:?}",
+                self.picked_file.as_ref().map(ReadableFile::name)
+            ));
 
             ui.separator();
 
