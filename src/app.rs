@@ -75,9 +75,13 @@ impl eframe::App for WeaverApp {
 
                     #[cfg(not(target_arch = "wasm32"))]
                     let random_string = {
-                        use std::char;
                         use rand::{RngExt as _, distr::Uniform, rng};
-                        rng().sample_iter(Uniform::new_inclusive(0, 9).expect("invalid range")).take(5).filter_map(|i| char::from_digit(i, 10)).collect::<String>()
+                        use std::char;
+                        rng()
+                            .sample_iter(Uniform::new_inclusive(0, 9).expect("invalid range"))
+                            .take(5)
+                            .filter_map(|i| char::from_digit(i, 10))
+                            .collect::<String>()
                     };
 
                     if ui.button(format!("Immediate mode - random string: {random_string}")).clicked() {
@@ -125,10 +129,7 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         ui.label("Powered by ");
         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
         ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
+        ui.hyperlink_to("eframe", "https://github.com/emilk/egui/tree/master/crates/eframe");
         ui.label(".");
     });
 }

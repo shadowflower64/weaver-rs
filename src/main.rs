@@ -1,7 +1,7 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-const VERSION: &str = env!("CARGO_PKG_VERSION"); 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -14,10 +14,8 @@ fn main() -> eframe::Result {
             .with_min_inner_size([300.0, 220.0])
             .with_icon(
                 // NOTE: Adding an icon is optional
-                eframe::icon_data::from_png_bytes(
-                    &include_bytes!("../assets/favicon-512x512.png")[..],
-                )
-                .expect("Failed to load icon"),
+                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/favicon-512x512.png")[..])
+                    .expect("Failed to load icon"),
             ),
         ..Default::default()
     };
@@ -39,10 +37,7 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
-        let document = web_sys::window()
-            .expect("No window")
-            .document()
-            .expect("No document");
+        let document = web_sys::window().expect("No window").document().expect("No document");
 
         document.set_title(&format!("Weaver v{VERSION}"));
 
@@ -67,9 +62,7 @@ fn main() {
                     loading_text.remove();
                 }
                 Err(e) => {
-                    loading_text.set_inner_html(
-                        "<p> The app has crashed. See the developer console for details. </p>",
-                    );
+                    loading_text.set_inner_html("<p> The app has crashed. See the developer console for details. </p>");
                     panic!("Failed to start eframe: {e:?}");
                 }
             }
