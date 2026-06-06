@@ -1,6 +1,5 @@
-use crate::futures::spawn_local_block_or_not;
+use egui_async::Bind;
 use log::info;
-use std::sync::{Arc, Mutex};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -13,7 +12,10 @@ pub struct WeaverApp {
     value: f32,
 
     #[serde(skip)]
-    picked_file: Arc<Mutex<Option<(String, Vec<u8>)>>>,
+    picked_file: Bind<Option<(String, Vec<u8>)>, String>,
+
+    #[serde(skip)]
+    my_ip: Bind<String, String>,
 }
 
 impl Default for WeaverApp {
@@ -22,7 +24,8 @@ impl Default for WeaverApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
-            picked_file: Arc::new(Mutex::new(None)),
+            picked_file: Bind::new(true),
+            my_ip: Default::default(),
         }
     }
 }
@@ -43,6 +46,10 @@ impl WeaverApp {
     }
 }
 impl eframe::App for WeaverApp {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
+    }
+
     /// Called by the framework to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -60,10 +67,7 @@ impl eframe::App for WeaverApp {
                 let is_web = cfg!(target_arch = "wasm32");
                 ui.menu_button("File", |ui| {
                     if ui.button("Open").clicked() {
-                        let future_result_clone = self.picked_file.clone();
-                        info!("testing1");
-                        spawn_local_block_or_not(async move {
-                            info!("testing3");
+                        self.picked_file.request(async {
                             if let Some(file) = rfd::AsyncFileDialog::new().pick_file().await {
                                 let filename = file.file_name();
                                 let data = file.read().await;
@@ -71,13 +75,11 @@ impl eframe::App for WeaverApp {
                                 info!("file picked now");
                                 let string = String::from_utf8_lossy(&data);
                                 info!("Loaded data: {} ({} length)", string, string.len());
-
-                                *future_result_clone.lock().unwrap() = Some((filename, data));
+                                return Ok(Some((filename, data)));
                             } else {
-                                *future_result_clone.lock().unwrap() =
-                                    Some((String::from("no filename provided"), Vec::new()));
                                 // *future_result_clone.lock().unwrap() = None;
                                 info!("file pick cancelled");
+                                return Ok(Some((String::from("no filename provided"), Vec::new())));
                             }
                         });
                     }
@@ -133,7 +135,25 @@ impl eframe::App for WeaverApp {
             }
 
             ui.add_space(16.0);
-            ui.label(format!("Picked file: {:?}", self.picked_file));
+            ui.label(format!("Picked file: {:?}", self.picked_file.read()));
+
+            if let Some(res) = self.my_ip.read_or_request(|| async {
+                // This async block runs in the background!
+                reqwest::get("https://icanhazip.com/")
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .text()
+                    .await
+                    .map_err(|e| e.to_string()) // Our Bind<, E> error type is String
+            }) {
+                match res {
+                    Ok(ip) => ui.label(format!("IP: {ip}")),
+                    Err(err) => ui.colored_label(egui::Color32::RED, err),
+                };
+            } else {
+                // While the future is running, this block (None) block executes:
+                ui.spinner();
+            }
 
             ui.separator();
 

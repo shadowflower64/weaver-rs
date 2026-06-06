@@ -20,19 +20,19 @@
 //     trace!("after spawning with wasm_bindgen_futures::spawn_local");
 // }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn spawn_local_block_or_not<F>(future: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    use pollster::FutureExt as _;
-    future.block_on();
-}
+// #[cfg(not(target_arch = "wasm32"))]
+// pub fn spawn_local_block_or_not<F>(future: F)
+// where
+//     F: Future<Output = ()> + 'static,
+// {
+//     use pollster::FutureExt as _;
+//     future.block_on();
+// }
 
-#[cfg(target_arch = "wasm32")]
-pub fn spawn_local_block_or_not<F>(future: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    wasm_bindgen_futures::spawn_local(future);
-}
+// #[cfg(target_arch = "wasm32")]
+// pub fn spawn_local_block_or_not<F>(future: F)
+// where
+//     F: Future<Output = ()> + 'static,
+// {
+//     wasm_bindgen_futures::spawn_local(future);
+// }
